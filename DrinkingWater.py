@@ -2,7 +2,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding("latin-1")
 
-import xlrd, arcpy, string, os, zipfile, fileinput, time
+import xlrd, arcpy, string, os, zipfile, fileinput, time, math
 from datetime import date
 start_time = time.time()
 
@@ -17,13 +17,42 @@ arcpy.env.workspace = OUTPUT_PATH + "\\DrinkingWater.gdb"
 import math
 
 # http://stackoverflow.com/questions/343865/how-to-convert-from-utm-to-latlng-in-python-or-javascript
-def utmToLatLng(zone, easting, northing, northernHemisphere=True):
+'''
+datumTable: [
+        { eqRad: 6378137.0, flat: 298.2572236 },    // WGS 84
+        { eqRad: 6378137.0, flat: 298.2572236 },    // NAD 83
+        { eqRad: 6378137.0, flat: 298.2572215 },    // GRS 80
+        { eqRad: 6378135.0, flat: 298.2597208 },    // WGS 72
+        { eqRad: 6378160.0, flat: 298.2497323 },    // Austrailian 1965
+        { eqRad: 6378245.0, flat: 298.2997381 },    // Krasovsky 1940
+        { eqRad: 6378206.4, flat: 294.9786982 },    // North American 1927
+        { eqRad: 6378388.0, flat: 296.9993621 },    // International 1924
+        { eqRad: 6378388.0, flat: 296.9993621 },    // Hayford 1909
+        { eqRad: 6378249.1, flat: 293.4660167 },    // Clarke 1880
+        { eqRad: 6378206.4, flat: 294.9786982 },    // Clarke 1866
+        { eqRad: 6377563.4, flat: 299.3247788 },    // Airy 1830
+        { eqRad: 6377397.2, flat: 299.1527052 },    // Bessel 1841
+        { eqRad: 6377276.3, flat: 300.8021499 }     // Everest 1830
+    ],
+'''
+def utmToLatLng(zone, easting, northing, datum, northernHemisphere=True):
 	if not northernHemisphere:
 		northing = 10000000 - northing
-
-	a = 6378137
-	e = 0.081819191
-	e1sq = 0.006739497
+	datumDict = {'NAD83': {'eqRad': 6378137.0, 'flat': 298.2572236}, 'NAD27': {'eqRad': 6378206.4, 'flat': 294.9786982}};
+	if (datum in datumDict):
+		a = datumDict[datum]['eqRad']
+		flat = datumDict[datum]['flat']
+	else:
+		a = datumDict['NAD83']['eqRad']
+		flat = datumDict['NAD83']['flat']
+		
+	# f = 1/flat; e1sq = 2 * f - f * f; e = math.sqrt(e1sq)
+	f = 1/flat
+	e1sq = 2 * f - f * f
+	e = math.sqrt(e1sq)
+	#a = 6378137
+	#e = 0.081819191
+	#e1sq = 0.006739497
 	k0 = 0.9996
 		
 	arc = northing / k0
@@ -188,6 +217,7 @@ print len(DWSPDict)
 featureFieldList = [["SAMPLE_PROGRAM", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["DWS_NAME", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["DWS_NUMBER", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["SAMPLE_TYPE", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["SAMPLE_LOCATION", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["STATION_NUMBER", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["SAMPLE_CONDITION", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["SAMPLE_DATE", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["PARAMETER_GROUP", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["PARAMETER", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["CURRENT_DETECTION_LIMIT", "DOUBLE", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["DETECTION_LIMIT_UNIT", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["RESULT", "DOUBLE", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["RESULT_UNIT", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""], ["QUALIFIER", "TEXT", "", "", "", "", "NON_NULLABLE", "NON_REQUIRED", ""]]
 featureInsertCursorFields = ("SHAPE@XY", "SAMPLE_PROGRAM", "DWS_NAME", "DWS_NUMBER", "SAMPLE_TYPE", "SAMPLE_LOCATION", "STATION_NUMBER", "SAMPLE_CONDITION", "SAMPLE_DATE", "PARAMETER_GROUP", "PARAMETER", "CURRENT_DETECTION_LIMIT", "DETECTION_LIMIT_UNIT", "RESULT", "RESULT_UNIT", "QUALIFIER")
 createFeatureClass(featureName, featureData, featureFieldList, featureInsertCursorFields)
+arcpy.AddIndex_management (featureName, "DWS_NUMBER", "DWS_NUMBER_IND", "NON_UNIQUE", "NON_ASCENDING")
 
 featureName = "DWS"
 wb = xlrd.open_workbook('input\\Data\\DW Map File - draft2.1.xlsx')
@@ -202,7 +232,7 @@ for rownum in range(1, sh.nrows):
 	latitude = 0.0
 	longitude = 0.0
 	if (len(str(row[22]).strip()) != 0) and (len(str(row[23]).strip()) != 0) and (len(str(row[24]).strip()) != 0):
-		latlng = utmToLatLng(int(row[22]), int(row[23]), int(row[24]))
+		latlng = utmToLatLng(int(row[22]), int(row[23]), int(row[24]), row[18])
 		latitude = latlng[0]
 		longitude = latlng[1]
 	row[0] = unicode(int(row[0]))
@@ -239,7 +269,42 @@ featureFieldList = [["DWS_NUM", "TEXT", "", "", "", "", "NULLABLE", "REQUIRED", 
 featureInsertCursorFields = ("SHAPE@XY", "DWS_NUM", "DWS_NAME", "OWNER_LEGAL_NAME", "OPERATING_AUTHORITY_LEGAL_NAME", "DWS_CATEGORY", "POPULATION_SERVED", "DESIGN_RATED_CAPACITY", "CAPACITYUOM", "REGION_NAME", "DISTRICT_NAME", "MUNICIPALITY_NAME", "MUNICIPALITY_ID", "MUNICIPALITY_HOME_URL", "MUNICIPALITY_PHONE", "MUNICIPALITY_EMAIL", "LASTARYEAR", "LASTARURL", "ARLIBRARYURL", "MAP_DATUM", "GEO_REFENCING_METHOD", "ACCURACY_ESTIMATES", "LOCATION_REFERENCE", "UTM_ZONE", "UTM_EASTING", "UTM_NORTHING", "NUMBER_OF_DWS", "LATITUDE", "LONGITUDE", "TREATMENT_PROCESSES", "SOURCES", "RECEIVING_DWS", "DATE_OF_INSPECTION", "INSPECTION_ID", "SCORE", "ENGLISH_DATE_RANGE", "FRENCH_DATE_RANGE", "KEY", "PERCENTAGE_COMPLIED", "ENGLISH_TIME_PERIOD", "FRENCH_TIME_PERIOD", "TASTE_AND_ODOUR", "CHLORIDE", "COLOUR", "ALGAL_TOXINS", "DWSP")
 createFeatureClass(featureName, featureData, featureFieldList, featureInsertCursorFields)
 
+arcpy.AddIndex_management (featureName, "DWS_NUM", "DWS_NUM_IND", "NON_UNIQUE", "NON_ASCENDING")
+arcpy.AddIndex_management (featureName, "DWS_NAME", "DWS_NAME_IND", "NON_UNIQUE", "NON_ASCENDING")
+arcpy.AddIndex_management (featureName, "MUNICIPALITY_NAME", "MUNICIPALITY_NAME_IND", "NON_UNIQUE", "NON_ASCENDING")
 
+# Prepare the msd, mxd, and readme.txt
+os.system("copy " + INPUT_PATH + "\\DrinkingWater.msd " + OUTPUT_PATH)
+os.system("copy " + INPUT_PATH + "\\DrinkingWater.mxd " + OUTPUT_PATH)
+f = open (INPUT_PATH + "\\readme_DrinkingWater.txt","r")
+data = f.read()
+f.close()
+import time
+dateString = time.strftime("%Y/%m/%d", time.localtime())
+data = data.replace("[DATE]", dateString)
+f = open (OUTPUT_PATH + "\\readme_DrinkingWater.txt","w")
+f.write(data)
+f.close()
+
+# Compress the msd, mxd, readme.txt and file geodatabase together into a zip file named DrinkingWater.zip, which will be send to web service publisher. 
+
+target_dir = OUTPUT_PATH + '\\DrinkingWater.gdb'
+zip = zipfile.ZipFile(OUTPUT_PATH + '\\DrinkingWater.zip', 'w', zipfile.ZIP_DEFLATED)
+rootlen = len(target_dir) + 1
+for base, dirs, files in os.walk(target_dir):
+   for file in files:
+      fn = os.path.join(base, file)
+      zip.write(fn, "DrinkingWater.gdb\\" + fn[rootlen:])
+zip.write(OUTPUT_PATH + '\\DrinkingWater.msd', "DrinkingWater.msd")
+zip.write(OUTPUT_PATH + '\\DrinkingWater.mxd', "DrinkingWater.mxd")
+zip.write(OUTPUT_PATH + '\\readme_DrinkingWater.txt', "readme_DrinkingWater.txt")
+zip.close()
+
+# Remove the msd, mxd, readme.txt and file geodatabase. 
+os.system("del " + OUTPUT_PATH + "\\DrinkingWater.msd")
+os.system("del " + OUTPUT_PATH + "\\DrinkingWater.mxd")
+os.system("del " + OUTPUT_PATH + "\\readme_DrinkingWater.txt")
+os.system("rmdir " + OUTPUT_PATH + "\\DrinkingWater.gdb /s /q")
 
 elapsed_time = time.time() - start_time
 print elapsed_time

@@ -6,6 +6,12 @@ import xlrd, arcpy, string, os, zipfile, fileinput, time, math
 from datetime import date
 start_time = time.time()
 
+DWSExcelFile = 'input\\Data\\20140910\\DWO Data File - Profiles, Annual Reports 20140909.xlsx'
+DWSPExcelFile = 'input\\Data\\20140910\\DWSP_SelectedParameters_15-Aug-2014.xlsx'
+DWO_IRR_ExcelFile = 'input\\Data\\20140910\\DWO_IRR_Loading_File_-_By_Fiscal_Year2012-2013_prototype_map_aug142014.xlsx'
+DWO_DWQ_ExcelFile = 'input\\Data\\20140910\\DWO_DWQ_2012-13.xlsx'
+
+
 INPUT_PATH = "input"
 OUTPUT_PATH = "output"
 if arcpy.Exists(OUTPUT_PATH + "\\DrinkingWater.gdb"):
@@ -121,9 +127,10 @@ def createFeatureClass(featureName, featureData, featureFieldList, featureInsert
 	arcpy.Delete_management(featureNameNAD83Path, "FeatureClass")
 	print "Finish " + featureName + " feature class."
 
+
 TreatmentProcessesDict = {}
-wb = xlrd.open_workbook('input\\Data\\DW Map File - draft2.1.xlsx')
-sh = wb.sheet_by_name(u'Treatment Processes-2')
+wb = xlrd.open_workbook(DWSExcelFile)
+sh = wb.sheet_by_name(u'Treatment Processes_2')
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
 	if row[0] in TreatmentProcessesDict:
@@ -133,8 +140,8 @@ for rownum in range(1, sh.nrows):
 print len(TreatmentProcessesDict)
 
 SourcesDict = {}
-wb = xlrd.open_workbook('input\\Data\\DW Map File - draft2.1.xlsx')
-sh = wb.sheet_by_name(u'Sources-3')
+wb = xlrd.open_workbook(DWSExcelFile)
+sh = wb.sheet_by_name(u'Sources_3')
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
 	if row[0] in SourcesDict:
@@ -144,8 +151,8 @@ for rownum in range(1, sh.nrows):
 print len(SourcesDict)
 
 ReceivingDWSDict = {}
-wb = xlrd.open_workbook('input\\Data\\DW Map File - draft2.1.xlsx')
-sh = wb.sheet_by_name(u'Receiving DWS-4')
+wb = xlrd.open_workbook(DWSExcelFile)
+sh = wb.sheet_by_name(u'Receiving DWS_4')
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
 	if row[0] in ReceivingDWSDict:
@@ -155,7 +162,7 @@ for rownum in range(1, sh.nrows):
 print len(ReceivingDWSDict)
 
 IRRDict = {}
-wb = xlrd.open_workbook('input\\Data\\DWO_IRR_Loading_File_-_By_Fiscal_Year2012-2013_prototype_map_aug142014.xlsx')
+wb = xlrd.open_workbook(DWO_IRR_ExcelFile)
 sh = wb.sheet_by_name(u'Page1_1')
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
@@ -173,7 +180,7 @@ for rownum in range(1, sh.nrows):
 print len(IRRDict)
 
 DWQDict = {}
-wb = xlrd.open_workbook('input\\Data\\DWO_DWQ_2012-13.xlsx')
+wb = xlrd.open_workbook(DWO_DWQ_ExcelFile)
 sh = wb.sheet_by_name(u'Page1-1')
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
@@ -184,7 +191,7 @@ print len(DWQDict)
 
 DWSPDict = {}
 featureName = "DWSP"
-wb = xlrd.open_workbook('input\\Data\\DWSP_SelectedParameters_15-Aug-2014.xlsx')
+wb = xlrd.open_workbook(DWSPExcelFile)
 sh = wb.sheet_by_name(u'DWSP Data')
 featureData = []
 for rownum in range(1, sh.nrows):
@@ -220,8 +227,8 @@ createFeatureClass(featureName, featureData, featureFieldList, featureInsertCurs
 arcpy.AddIndex_management (featureName, "DWS_NUMBER", "DWS_NUMBER_IND", "NON_UNIQUE", "NON_ASCENDING")
 
 featureName = "DWS"
-wb = xlrd.open_workbook('input\\Data\\DW Map File - draft2.1.xlsx')
-sh = wb.sheet_by_name(u'Base Profile-1')
+wb = xlrd.open_workbook(DWSExcelFile)
+sh = wb.sheet_by_name(u'Base Profile_1')
 featureData = []
 for rownum in range(1, sh.nrows):
 	row = sh.row_values(rownum)
@@ -246,11 +253,11 @@ for rownum in range(1, sh.nrows):
 	if row[0] in ReceivingDWSDict:
 		ReceivingDWS = ", ".join(ReceivingDWSDict[unicode(row[0])])
 
-	IRR_row = ["", "", "", "", "", ""]
+	IRR_row = ["N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]
 	if row[0] in IRRDict:
 		IRR_row = IRRDict[row[0]]
 
-	DWQ_row = ["", "", ""]
+	DWQ_row = ["N/A", "N/A", "N/A"]
 	if row[0] in DWQDict:
 		DWQ_row = DWQDict[row[0]]
 
@@ -265,14 +272,15 @@ for rownum in range(1, sh.nrows):
 		
 	featureData.append([(longitude, latitude)] + row + [latitude, longitude, TreatmentProcesses, Sources, ReceivingDWS] + IRR_row + DWQ_row + DWSP_row + DWSP)
 
-featureFieldList = [["DWS_NUM", "TEXT", "", "", "", "", "NULLABLE", "REQUIRED", ""], ["DWS_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["OWNER_LEGAL_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["OPERATING_AUTHORITY_LEGAL_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DWS_CATEGORY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["POPULATION_SERVED", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DESIGN_RATED_CAPACITY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["CAPACITYUOM", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["REGION_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DISTRICT_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_ID", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_HOME_URL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_PHONE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_EMAIL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LASTARYEAR", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LASTARURL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ARLIBRARYURL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MAP_DATUM", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["GEO_REFENCING_METHOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ACCURACY_ESTIMATES", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LOCATION_REFERENCE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_ZONE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_EASTING", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_NORTHING", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["NUMBER_OF_DWS", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LATITUDE", "DOUBLE", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LONGITUDE", "DOUBLE", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["TREATMENT_PROCESSES", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["SOURCES", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["RECEIVING_DWS", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["DATE_OF_INSPECTION", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["INSPECTION_ID", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["SCORE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ENGLISH_DATE_RANGE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["FRENCH_DATE_RANGE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["KEY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["PERCENTAGE_COMPLIED", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ENGLISH_TIME_PERIOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["FRENCH_TIME_PERIOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["TASTE_AND_ODOUR", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["CHLORIDE", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["COLOUR", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ALGAL_TOXINS", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DWSP", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""]]
+featureFieldList = [["DWS_NUM", "TEXT", "", "", "", "", "NULLABLE", "REQUIRED", ""], ["DWS_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["OWNER_LEGAL_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["OPERATING_AUTHORITY_LEGAL_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DWS_CATEGORY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["POPULATION_SERVED", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DESIGN_RATED_CAPACITY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["CAPACITYUOM", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["REGION_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DISTRICT_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_NAME", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_ID", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_HOME_URL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_PHONE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["MUNICIPALITY_EMAIL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LASTARYEAR", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LASTARURL", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ARLIBRARYURL", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["MAP_DATUM", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["GEO_REFENCING_METHOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ACCURACY_ESTIMATES", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LOCATION_REFERENCE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_ZONE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_EASTING", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["UTM_NORTHING", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["NUMBER_OF_DWS", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LATITUDE", "DOUBLE", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["LONGITUDE", "DOUBLE", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["TREATMENT_PROCESSES", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["SOURCES", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["RECEIVING_DWS", "TEXT", "", "", "2000", "", "NULLABLE", "NON_REQUIRED", ""], ["DATE_OF_INSPECTION", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["INSPECTION_ID", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["SCORE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ENGLISH_DATE_RANGE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["FRENCH_DATE_RANGE", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["KEY", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["PERCENTAGE_COMPLIED", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ENGLISH_TIME_PERIOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["FRENCH_TIME_PERIOD", "TEXT", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["TASTE_AND_ODOUR", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["CHLORIDE", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["COLOUR", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["ALGAL_TOXINS", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""], ["DWSP", "INTEGER", "", "", "", "", "NULLABLE", "NON_REQUIRED", ""]]
 featureInsertCursorFields = ("SHAPE@XY", "DWS_NUM", "DWS_NAME", "OWNER_LEGAL_NAME", "OPERATING_AUTHORITY_LEGAL_NAME", "DWS_CATEGORY", "POPULATION_SERVED", "DESIGN_RATED_CAPACITY", "CAPACITYUOM", "REGION_NAME", "DISTRICT_NAME", "MUNICIPALITY_NAME", "MUNICIPALITY_ID", "MUNICIPALITY_HOME_URL", "MUNICIPALITY_PHONE", "MUNICIPALITY_EMAIL", "LASTARYEAR", "LASTARURL", "ARLIBRARYURL", "MAP_DATUM", "GEO_REFENCING_METHOD", "ACCURACY_ESTIMATES", "LOCATION_REFERENCE", "UTM_ZONE", "UTM_EASTING", "UTM_NORTHING", "NUMBER_OF_DWS", "LATITUDE", "LONGITUDE", "TREATMENT_PROCESSES", "SOURCES", "RECEIVING_DWS", "DATE_OF_INSPECTION", "INSPECTION_ID", "SCORE", "ENGLISH_DATE_RANGE", "FRENCH_DATE_RANGE", "KEY", "PERCENTAGE_COMPLIED", "ENGLISH_TIME_PERIOD", "FRENCH_TIME_PERIOD", "TASTE_AND_ODOUR", "CHLORIDE", "COLOUR", "ALGAL_TOXINS", "DWSP")
 createFeatureClass(featureName, featureData, featureFieldList, featureInsertCursorFields)
 
 arcpy.AddIndex_management (featureName, "DWS_NUM", "DWS_NUM_IND", "NON_UNIQUE", "NON_ASCENDING")
 arcpy.AddIndex_management (featureName, "DWS_NAME", "DWS_NAME_IND", "NON_UNIQUE", "NON_ASCENDING")
 arcpy.AddIndex_management (featureName, "MUNICIPALITY_NAME", "MUNICIPALITY_NAME_IND", "NON_UNIQUE", "NON_ASCENDING")
-
+arcpy.DeleteField_management(featureName, ["UTM_ZONE", "UTM_EASTING", "UTM_NORTHING", "LATITUDE", "LONGITUDE"])
+							 
 # Prepare the msd, mxd, and readme.txt
 os.system("copy " + INPUT_PATH + "\\DrinkingWater.msd " + OUTPUT_PATH)
 os.system("copy " + INPUT_PATH + "\\DrinkingWater.mxd " + OUTPUT_PATH)
